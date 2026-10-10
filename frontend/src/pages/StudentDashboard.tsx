@@ -58,6 +58,33 @@ export default function StudentDashboard() {
   const filteredDrives =
     activeTab === 'all' ? drives : drives.filter((d) => d.category === activeTab);
 
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+
+  const handleApply = async (jobId: string) => {
+    try {
+      setApplyingJobId(jobId);
+      const response = await fetch('http://localhost:8000/api/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: '220101045', // Replace with logged-in user ID
+          job_id: jobId,
+        }),
+      });
+      const result = await response.json();
+      if (result.data) {
+        alert(`Application Status: ${result.data.status}\nExplanation: ${result.data.ai_explanation}`);
+      } else {
+        alert(result.detail || 'Could not process application match.');
+      }
+    } catch (err) {
+      console.error('Failed to trigger AI match:', err);
+      alert('Failed to trigger AI match. Please check if the backend server is running on http://localhost:8000');
+    } finally {
+      setApplyingJobId(null);
+    }
+  };
+
   return (
     <DashboardLayout role="student" title="Overview">
       <div className="space-y-6">
@@ -242,9 +269,11 @@ export default function StudentDashboard() {
                       <td className="py-3 px-4 text-right">
                         <button
                           type="button"
-                          className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                          disabled={applyingJobId === drive.id}
+                          onClick={() => handleApply(drive.id)}
+                          className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          Apply
+                          {applyingJobId === drive.id ? 'Applying...' : 'Apply'}
                         </button>
                       </td>
                     </tr>
