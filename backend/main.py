@@ -1,10 +1,14 @@
 import os
 import json
 import requests
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from pydantic import BaseModel
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ==========================================
 # 1. Initialization & Configuration
@@ -22,13 +26,19 @@ app.add_middleware(
 )
 
 # Supabase Credentials
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "your_supabase_url")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your_supabase_key")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+supabase: Client
+try:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    print(f"Warning: Could not initialize Supabase client: {e}")
+    supabase = None  # type: ignore
 
 # Notion Credentials
-NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "your_notion_integration_secret")
-NOTION_DB_ID = os.environ.get("NOTION_DB_ID", "your_32_character_database_id")
+NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
+NOTION_DB_ID = os.environ.get("NOTION_DB_ID", "")
 
 # ==========================================
 # 2. Pydantic Models
