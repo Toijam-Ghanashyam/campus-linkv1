@@ -10,7 +10,8 @@ import {
   Clock,
   Building,
   FileCheck,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 interface JobItem {
@@ -99,27 +100,39 @@ export default function StudentDashboard() {
       : displayedJobs.filter((d) => (d.category || 'it') === activeTab);
 
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  
+  const [selectedApplicationFeedback, setSelectedApplicationFeedback] = useState<{
+    status: string;
+    fitScore: number;
+    explanation: string;
+    notionUrl?: string;
+    roleTitle: string;
+  } | null>(null);
 
-  const handleApply = async (jobId: string) => {
+  const handleApplyWithFeedback = async (jobId: string, roleTitle: string) => {
     try {
       setApplyingJobId(jobId);
       const response = await fetch('http://localhost:8000/api/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          student_id: '220101045', // Replace with logged-in user ID
+          student_id: '220101045', // Active student ID
           job_id: jobId,
         }),
       });
       const result = await response.json();
+      
       if (result.data) {
-        alert(`Application Status: ${result.data.status}\nExplanation: ${result.data.ai_explanation}`);
-      } else {
-        alert(result.detail || 'Could not process application match.');
+        setSelectedApplicationFeedback({
+          status: result.data.status,
+          fitScore: result.data.fit_score,
+          explanation: result.data.ai_explanation,
+          notionUrl: result.data.notion_roadmap_url,
+          roleTitle: roleTitle,
+        });
       }
     } catch (err) {
-      console.error('Failed to trigger AI match:', err);
-      alert('Failed to trigger AI match. Please check if the backend server is running on http://localhost:8000');
+      console.error('Match failed:', err);
     } finally {
       setApplyingJobId(null);
     }
@@ -310,7 +323,7 @@ export default function StudentDashboard() {
                         <button
                           type="button"
                           disabled={applyingJobId === drive.id}
-                          onClick={() => handleApply(drive.id)}
+                          onClick={() => handleApplyWithFeedback(drive.id, drive.role || drive.title || 'Role')}
                           className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           {applyingJobId === drive.id ? 'Applying...' : 'Apply'}
@@ -402,6 +415,81 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Explainable Match & Remediation Roadmap Modal */}
+      {selectedApplicationFeedback && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-lg max-w-lg w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+                  AI Match Analysis
+                </span>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {selectedApplicationFeedback.roleTitle}
+                </h3>
+              </div>
+              <span
+                className={`px-2.5 py-1 rounded text-xs font-semibold ${
+                  selectedApplicationFeedback.status === 'Shortlisted'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-800 border border-amber-200'
+                }`}
+              >
+                {selectedApplicationFeedback.status} ({selectedApplicationFeedback.fitScore}%)
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                  Match Explanation
+                </h4>
+                <p className="text-xs text-slate-600 mt-1 bg-slate-50 p-3 rounded border border-slate-200 leading-relaxed">
+                  {selectedApplicationFeedback.explanation}
+                </p>
+              </div>
+
+              {selectedApplicationFeedback.status === 'Rejected' && (
+                <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded text-xs space-y-2">
+                  <div className="font-semibold text-blue-900 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    Automated Notion Remediation Roadmap Generated
+                  </div>
+                  <p className="text-slate-600 text-[11px]">
+                    A 120-minute structured learning plan has been pushed to your Notion workspace to help you address these specific skill gaps before the next drive.
+                  </p>
+                  {selectedApplicationFeedback.notionUrl ? (
+                    <a
+                      href={selectedApplicationFeedback.notionUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                    >
+                      <span>Open Notion Roadmap Workspace</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 italic">
+                      Generating Notion workspace in background... Check back in a few seconds.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 text-right">
+              <button
+                type="button"
+                onClick={() => setSelectedApplicationFeedback(null)}
+                className="px-4 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors"
+              >
+                Close Analysis
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

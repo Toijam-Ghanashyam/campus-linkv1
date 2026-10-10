@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/layout';
 import {
   Users,
@@ -14,7 +14,7 @@ import {
 export default function RecruiterDashboard() {
   const [filterDept, setFilterDept] = useState<'all' | 'cse' | 'ece'>('all');
 
-  const candidates = [
+  const [candidates, setCandidates] = useState<any[]>([
     {
       id: 'c1',
       name: 'Rohan Senapati',
@@ -55,7 +55,39 @@ export default function RecruiterDashboard() {
       assessmentScore: '90/100',
       status: 'Scheduled',
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    // Fetch real applicant data for current drive ('d1' for Microsoft India in this demo)
+    fetch('http://localhost:8000/api/applications/job/d1')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          // Hydrate candidate state with live Supabase & Gemini evaluations
+          const liveCandidates = data.map((app: any) => {
+            const profile = app.student_profiles || {};
+            const p = Array.isArray(profile) ? profile[0] || {} : profile;
+            
+            const users = p.users || {};
+            const u = Array.isArray(users) ? users[0] || {} : users;
+            const userName = u.full_name || 'Ananya Sharma';
+            
+            return {
+              id: app.id || Math.random().toString(),
+              name: userName,
+              rollNo: p.student_id || 'Unknown',
+              branch: p.branch || 'Unknown',
+              cgpa: p.cgpa?.toString() || 'N/A',
+              aiScore: `${app.fit_score || 0}%`,
+              assessmentScore: `${p.mock_interview_score || 0}/100`,
+              status: app.status || 'Pending',
+            };
+          });
+          setCandidates(liveCandidates);
+        }
+      })
+      .catch((err) => console.error('Failed to load candidate pipeline:', err));
+  }, []);
 
   const filteredCandidates =
     filterDept === 'all'
