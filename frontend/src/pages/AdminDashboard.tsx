@@ -8,7 +8,8 @@ import {
   CheckCircle2,
   Download,
   Plus,
-  BarChart3
+  BarChart3,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -61,8 +62,61 @@ export default function AdminDashboard() {
     },
   ];
 
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [scheduleStatus, setScheduleStatus] = useState<{
+    type: 'success' | 'conflict' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleAuthorizeDrive = async () => {
+    try {
+      setIsScheduling(true);
+      setScheduleStatus(null);
+
+      // Payload configured to test /api/drives/schedule and overlap detection logic
+      const payload = {
+        recruiter_id: 'rec_microsoft_01',
+        title: 'Microsoft India Campus Drive',
+        required_skills: ['Data Structures', 'Algorithms', 'React', 'Python'],
+        min_cgpa: 8.0,
+        drive_date: '2026-10-18', // Oct 18 date to test overlap conflict
+      };
+
+      const response = await fetch('http://localhost:8000/api/drives/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (response.status === 409) {
+        const conflictMsg = result.detail || 'Scheduling Conflict: A drive is already scheduled for this date.';
+        setScheduleStatus({ type: 'conflict', message: conflictMsg });
+        alert(`⚠️ ${conflictMsg}`);
+      } else if (response.ok) {
+        const successMsg = result.message || 'Drive scheduled successfully, no conflicts detected.';
+        setScheduleStatus({ type: 'success', message: successMsg });
+        alert(`✅ ${successMsg}`);
+      } else {
+        const errorMsg = result.detail || 'Failed to authorize drive.';
+        setScheduleStatus({ type: 'error', message: errorMsg });
+        alert(`Error: ${errorMsg}`);
+      }
+    } catch (err) {
+      console.error('Failed to trigger drive schedule:', err);
+      alert('Failed to connect to backend at http://localhost:8000. Please ensure the backend server is running.');
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
   return (
-    <DashboardLayout role="admin" title="University Administration">
+    <DashboardLayout
+      role="admin"
+      title="University Administration"
+      onPrimaryAction={handleAuthorizeDrive}
+    >
       <div className="space-y-6">
         {/* Admin Header Box */}
         <div className="border border-slate-200 rounded p-5 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -80,10 +134,12 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3 shrink-0">
             <button
               type="button"
-              className="px-3.5 py-2 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+              disabled={isScheduling}
+              onClick={handleAuthorizeDrive}
+              className="px-3.5 py-2 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Authorize New Drive</span>
+              <span>{isScheduling ? 'Checking Overlaps...' : 'Authorize New Drive'}</span>
             </button>
             <button
               type="button"
@@ -94,6 +150,35 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Overlap Detection Feedback Banner */}
+        {scheduleStatus && (
+          <div
+            className={`p-3.5 rounded border text-xs flex items-center justify-between ${
+              scheduleStatus.type === 'conflict'
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                : scheduleStatus.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                : 'bg-red-50 border-red-200 text-red-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {scheduleStatus.type === 'conflict' ? (
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              )}
+              <span className="font-medium">{scheduleStatus.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScheduleStatus(null)}
+              className="text-xs text-slate-500 hover:text-slate-800 ml-4 font-medium"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* 4 Minimalist Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
