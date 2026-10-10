@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/layout';
 import {
   Briefcase,
@@ -13,10 +13,35 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+interface JobItem {
+  id: string;
+  company?: string;
+  role?: string;
+  title?: string;
+  ctc?: string;
+  deadline?: string;
+  drive_date?: string;
+  eligibility?: string;
+  min_cgpa?: number;
+  category?: string;
+}
+
 export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState<'all' | 'it' | 'core'>('all');
+  const [jobs, setJobs] = useState<JobItem[]>([]);
 
-  const drives = [
+  useEffect(() => {
+    fetch('http://localhost:8000/api/jobs')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setJobs(data);
+        }
+      })
+      .catch((err) => console.error('Error loading jobs:', err));
+  }, []);
+
+  const defaultDrives: JobItem[] = [
     {
       id: 'd1',
       company: 'Microsoft India',
@@ -55,8 +80,23 @@ export default function StudentDashboard() {
     },
   ];
 
+  // Use backend jobs if fetched, otherwise fall back to default drives
+  const displayedJobs: JobItem[] = jobs.length > 0
+    ? jobs.map((job) => ({
+        id: String(job.id),
+        company: job.company || 'Campus Partner',
+        role: job.role || job.title || 'Software Engineer',
+        ctc: job.ctc || 'Competitive CTC',
+        deadline: job.deadline || (job.drive_date ? new Date(job.drive_date).toLocaleDateString() : 'Rolling'),
+        eligibility: job.eligibility || (job.min_cgpa ? `Eligible (CGPA >= ${job.min_cgpa})` : 'Eligible'),
+        category: job.category || 'it',
+      }))
+    : defaultDrives;
+
   const filteredDrives =
-    activeTab === 'all' ? drives : drives.filter((d) => d.category === activeTab);
+    activeTab === 'all'
+      ? displayedJobs
+      : displayedJobs.filter((d) => (d.category || 'it') === activeTab);
 
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
 
@@ -207,7 +247,7 @@ export default function StudentDashboard() {
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  All (4)
+                  All ({displayedJobs.length})
                 </button>
                 <button
                   type="button"
